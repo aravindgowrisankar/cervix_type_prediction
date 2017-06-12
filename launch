@@ -1,0 +1,5 @@
+#PBS -N my_project_1
+cd ~/cervix_type_prediction
+echo Starting calculation
+./train
+echo End of calculation
