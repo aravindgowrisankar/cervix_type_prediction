@@ -101,11 +101,13 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
     #3) Compute spatial features if flag is set
     if spatial_feat == True:
         spatial_features = bin_spatial(feature_image, size=spatial_size)
+        #print("spatial",spatial_features.shape)
         #4) Append features to list
         img_features.append(spatial_features)
     #5) Compute histogram features if flag is set
     if hist_feat == True:
         hist_features = color_hist(feature_image, nbins=hist_bins)
+        #print("hist",hist_features.shape)
         #6) Append features to list
         img_features.append(hist_features)
     #7) Compute HOG features if flag is set
@@ -120,6 +122,7 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
             hog_features = get_hog_features(feature_image[:,:,hog_channel], orient, 
                         pix_per_cell, cell_per_block, vis=False, feature_vec=True)
         #8) Append features to list
+        #print("hog_features",hog_features.shape)
         img_features.append(hog_features)
 
     #9) Return concatenated array of features
