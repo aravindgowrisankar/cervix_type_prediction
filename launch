@@ -1,5 +1,6 @@
 #PBS -N my_project_1
+source activate aravind
 cd ~/cervix_type_prediction
 echo Starting calculation
-./train
+./train.py
 echo End of calculation

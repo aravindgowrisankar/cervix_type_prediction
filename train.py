@@ -2,11 +2,10 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+#import seaborn as sns
 from skimage.io import imread, imshow
 import cv2
 
-get_ipython().magic('matplotlib inline')
 import plotly.offline as py
 py.init_notebook_mode(connected=True)
 import plotly.graph_objs as go
@@ -97,7 +96,7 @@ def train_model(base):
 
     clf=svm.SVC(probability=True)
     grid = {
-        'C':[1e-1, 1, 1e1],
+        'C':[1e-5,1e-4,1e-3,1e-2,1e-1, 1, 1e1],
         'gamma': [0.2, 0.45, 0.7,1,10.0],
         }
     cv = GridSearchCV(clf, grid, scoring='neg_log_loss', n_jobs=-1, verbose=1)
@@ -165,4 +164,5 @@ def main(base):
 
 if __name__=="__main__":
     basepath="/data/kaggle/"
+    print("basepath",basepath)
     main(basepath)
