@@ -15,7 +15,7 @@ from common_functions import *
 
 color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations #18
-pix_per_cell = 16# HOG pixels per cell
+pix_per_cell = 64# HOG pixels per cell. Was 16
 cell_per_block = 2 # HOG cells per block
 hog_channel = "ALL" # Can be 0, 1, 2, or "ALL"
 spatial_size = (32, 32) # Spatial binning dimensions
@@ -23,7 +23,7 @@ hist_bins = 32    # Number of histogram bins
 spatial_feat = True # Spatial features on or off
 hist_feat = True # Histogram features on or off
 hog_feat = True # HOG features on or off
-min_size =(480,640)
+min_size =(640,480)
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
 
 @timeit
@@ -75,12 +75,19 @@ def load_train_data(samples=10,base="/data/kaggle/"):
 def train_model(base,samples):
     X,y,X_scaler=load_train_data(samples,base)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
-    print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
+    print("***********************************************************")
+
+    print("Training data shape",X_train.shape,"Test data shape", X_test.shape, 
+          "Training label shape",y_train.shape, "Test label shape",y_test.shape)
+
+
+    print("Training Label Distribution",pd.Series(y_train).value_counts())
+    print("Test Label Distribution",pd.Series(y_train).value_counts())
 
     clf=svm.SVC(probability=True)
     grid = {
-        'C':[1e-5,1e-4,1e-3,1e-2,1e-1, 1, 1e1],
-        'gamma': [0.2, 0.45, 0.7,1,10.0],
+        'C':[1e-5,1e-4,1e-3,1e-2,1e-1, 1, 1e1,1e2,1e3,1e4,1e5],
+        'gamma': [1e-5,1e-4,1e-3,1e-2,1e-1, 1, 1e1],
         }
     cv = GridSearchCV(clf, grid, scoring='neg_log_loss', n_jobs=-1, verbose=1)
     cv.fit(X_train, y_train)
@@ -98,15 +105,16 @@ def train_model(base,samples):
                 params
                 ))
 
-    print("***********************************************************")
+
     y_test_hat_p = cv.predict_proba(X_test)
-    print("Log Loss",sklearn.metrics.log_loss(y_test, y_test_hat_p))
+    print("Validation log loss",sklearn.metrics.log_loss(y_test, y_test_hat_p))
     print("***********************************************************")
     return cv,X_scaler
 
 @timeit
-def load_test_data(base,X_scaler):
-    test = glob(base+'test/*.jpg')
+def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
+    test = glob(base+'test/*.jpg')[0:samples]
+    test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test}))
     test_features = extract_features(test, color_space=color_space, 
                                      spatial_size=spatial_size, hist_bins=hist_bins, 
                                      orient=orient, pix_per_cell=pix_per_cell, 
@@ -120,28 +128,21 @@ def load_test_data(base,X_scaler):
     # Fit a per-column scaler
     # Apply the scaler to X
     scaled_X = X_scaler.transform(X)
-
-    return scaled_X
+    return test_image_df,scaled_X
 
 @timeit
 def main(base,samples=5):
     cv,X_scaler=train_model(base,samples)
-    test_images = glob(base+'test/*.jpg')
-    test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test_images}))
-
-    test_imgs_mat = load_test_data(base,X_scaler)
-
+    test_image_df,test_imgs_mat = load_test_data(samples,base,X_scaler)
     preds=cv.predict_proba(test_imgs_mat)
 
     print("Test set predictions shape",preds.shape)
-
     test_image_df["Type_1"]=preds[:,0]
     test_image_df["Type_2"]=preds[:,1]
     test_image_df["Type_3"]=preds[:,2]
     
     func=lambda x: x.split("/")[-1]
     test_image_df["image_name"]=test_image_df["imagepath"].apply(func)
-    
     test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("third_submission.csv",index=False)
 
 if __name__=="__main__":
