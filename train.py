@@ -12,18 +12,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, train_test_split
 
 from common_functions import *
-
 color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations #18
-pix_per_cell = 64# HOG pixels per cell. Was 16
+pix_per_cell = 16# HOG pixels per cell. Was 16
 cell_per_block = 2 # HOG cells per block
-hog_channel = "ALL" # Can be 0, 1, 2, or "ALL"
+hog_channel = "ALL" # Can be 0, 1, 2, or "ALL". Was ALL
 spatial_size = (32, 32) # Spatial binning dimensions
 hist_bins = 32    # Number of histogram bins
-spatial_feat = True # Spatial features on or off
-hist_feat = True # Histogram features on or off
+spatial_feat = False # Spatial features on or off
+hist_feat = False # Histogram features on or off
 hog_feat = True # HOG features on or off
-min_size =(640,480)
+min_size =(64,48)
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
 
 @timeit
@@ -72,9 +71,8 @@ def load_train_data(samples=10,base="/data/kaggle/"):
     return scaled_X,y,X_scaler
 
 @timeit
-def train_model(base,samples):
-    X,y,X_scaler=load_train_data(samples,base)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+def train_model(X,y,random_state=42):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=random_state)
     print("***********************************************************")
 
     print("Training data shape",X_train.shape,"Test data shape", X_test.shape, 
@@ -82,7 +80,7 @@ def train_model(base,samples):
 
 
     print("Training Label Distribution",pd.Series(y_train).value_counts())
-    print("Test Label Distribution",pd.Series(y_train).value_counts())
+    print("Test Label Distribution",pd.Series(y_test).value_counts())
 
     clf=svm.SVC(probability=True)
     grid = {
@@ -109,7 +107,7 @@ def train_model(base,samples):
     y_test_hat_p = cv.predict_proba(X_test)
     print("Validation log loss",sklearn.metrics.log_loss(y_test, y_test_hat_p))
     print("***********************************************************")
-    return cv,X_scaler
+    return cv
 
 @timeit
 def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
@@ -132,7 +130,8 @@ def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
 
 @timeit
 def main(base,samples=5):
-    cv,X_scaler=train_model(base,samples)
+    X,y,X_scaler=load_train_data(samples,base)
+    cv=train_model(X,y)
     test_image_df,test_imgs_mat = load_test_data(samples,base,X_scaler)
     preds=cv.predict_proba(test_imgs_mat)
 
@@ -143,9 +142,9 @@ def main(base,samples=5):
     
     func=lambda x: x.split("/")[-1]
     test_image_df["image_name"]=test_image_df["imagepath"].apply(func)
-    test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("third_submission.csv",index=False)
+    test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("fourth_submission.csv",index=False)
 
 if __name__=="__main__":
     basepath="/data/kaggle/"
     print("basepath",basepath)
-    main(basepath,10)
+    main(basepath,600)
