@@ -2,6 +2,20 @@ import numpy as np
 import cv2
 from skimage.feature import hog
 from scipy.ndimage.measurements import label
+from time import time
+
+import time                                                
+ 
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+ 
+        print ('%r (%r, %r) %2.2f sec' % (method.__name__, args, kw, te-ts))
+        return result
+ 
+    return timed
 
 def convert_color(img, conv='RGB2YCrCb'):
     if conv == 'RGB2YCrCb':
@@ -48,6 +62,7 @@ def color_hist(img, nbins=32):    #bins_range=(0, 256)
 
 import matplotlib.pyplot as plt
 
+@timeit
 def extract_features(list_of_images, 
                      color_space,
                      spatial_size,
@@ -58,7 +73,9 @@ def extract_features(list_of_images,
                      hog_channel,
                      spatial_feat,
                      hist_feat,
-                     hog_feat):
+                     hog_feat,
+                     new_size=None
+                 ):
 
     list_of_features=[]
     for image in list_of_images:
@@ -73,7 +90,9 @@ def extract_features(list_of_images,
                                        hog_channel=hog_channel, 
                                        spatial_feat=spatial_feat, 
                                        hist_feat=hist_feat, 
-                                       hog_feat=hog_feat)
+                                       hog_feat=hog_feat,
+                                       new_size=new_size
+)
         
         list_of_features.append(features)
     return list_of_features
@@ -82,10 +101,18 @@ def extract_features(list_of_images,
 def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9, 
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
-                        spatial_feat=True, hist_feat=True, hog_feat=True):    
+                        spatial_feat=True, hist_feat=True, hog_feat=True,
+                        new_size=None):    
     #1) Define an empty list to receive features
     img_features = []
     #2) Apply color conversion if other than 'RGB'
+    if new_size:
+        rows,cols=new_size
+        cv2_shape=(cols,rows)
+        color1 = cv2.resize(img[:,:,0],cv2_shape )
+        color2 = cv2.resize(img[:,:,1], cv2_shape)
+        color3 = cv2.resize(img[:,:,2], cv2_shape)
+        img=np.dstack((color1, color2, color3))
     if color_space != 'RGB':
         if color_space == 'HSV':
             feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)

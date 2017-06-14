@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
+from subprocess import check_output
+from glob import glob
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 #import seaborn as sns
-from skimage.io import imread, imshow
-import cv2
 
-import plotly.offline as py
-py.init_notebook_mode(connected=True)
-import plotly.graph_objs as go
-import plotly.tools as tls
-from glob import glob
 import sklearn
 from sklearn.preprocessing import LabelEncoder,Normalizer,StandardScaler
 from sklearn import svm
@@ -18,11 +12,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, train_test_split
 
 from common_functions import *
-
-from subprocess import check_output
-print(check_output(["ls", "/data/kaggle/train"]).decode("utf8"))
-
-
 
 color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations #18
@@ -33,13 +22,14 @@ spatial_size = (32, 32) # Spatial binning dimensions
 hist_bins = 32    # Number of histogram bins
 spatial_feat = True # Spatial features on or off
 hist_feat = True # Histogram features on or off
-hog_feat = False # HOG features on or off
+hog_feat = True # HOG features on or off
+min_size =(480,640)
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
 
-
-
+@timeit
 def load_train_data(samples=10,base="/data/kaggle/"):
-
+    print(check_output(["ls", base+"/train"]).decode("utf8"))
+        
 # Read in cars and notcars
     type_1 = glob(base+'train/Type_1/*.jpg')
     type_2 = glob(base+'train/Type_2/*.jpg')
@@ -49,20 +39,23 @@ def load_train_data(samples=10,base="/data/kaggle/"):
                                        orient=orient, pix_per_cell=pix_per_cell, 
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
+                                       hist_feat=hist_feat, hog_feat=hog_feat,
+                                       new_size=min_size)
     type_2_features = extract_features(type_2[0:samples], color_space=color_space, 
                                        spatial_size=spatial_size, hist_bins=hist_bins, 
                                        orient=orient, pix_per_cell=pix_per_cell, 
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
+                                       hist_feat=hist_feat, hog_feat=hog_feat,
+                                       new_size=min_size)
 
     type_3_features = extract_features(type_3[0:samples], color_space=color_space, 
                                        spatial_size=spatial_size, hist_bins=hist_bins, 
                                        orient=orient, pix_per_cell=pix_per_cell, 
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat)    
+                                       hist_feat=hist_feat, hog_feat=hog_feat,
+                                       new_size=min_size)    
 
 #    return type_1_features,type_2_features,type_3_features
 
@@ -78,19 +71,9 @@ def load_train_data(samples=10,base="/data/kaggle/"):
     
     return scaled_X,y,X_scaler
 
-def train_model(base):
-# ----------
-
-# # Model Selection
-# 
-# Now that we've established a basic idea about the data, let's do the most straightforward approach, where we take the resized color images and labels and train a, most likely quite heavily regularized, linear model like logistic regression on it.
-# 
-# It is quite important to understand that we only have read a few training instances, 108, and have thousands of dimensions. To be able to cope with that we'll most likely end up using L1 regularization.
-# 
-# For the multi-class problem we are faced with here, we'll use standard approach of OVR (one vs rest), meaning we will train three models where each of them is designed to distinguish class 1, 2 and 3 from the others respectively.
-
-# In[16]:
-    X,y,X_scaler=load_train_data(500,base)
+@timeit
+def train_model(base,samples):
+    X,y,X_scaler=load_train_data(samples,base)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
     print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
@@ -119,16 +102,18 @@ def train_model(base):
     y_test_hat_p = cv.predict_proba(X_test)
     print("Log Loss",sklearn.metrics.log_loss(y_test, y_test_hat_p))
     print("***********************************************************")
-    return cv
+    return cv,X_scaler
 
+@timeit
 def load_test_data(base,X_scaler):
     test = glob(base+'test/*.jpg')
     test_features = extract_features(test, color_space=color_space, 
-                                       spatial_size=spatial_size, hist_bins=hist_bins, 
-                                       orient=orient, pix_per_cell=pix_per_cell, 
-                                       cell_per_block=cell_per_block, 
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
+                                     spatial_size=spatial_size, hist_bins=hist_bins, 
+                                     orient=orient, pix_per_cell=pix_per_cell, 
+                                     cell_per_block=cell_per_block, 
+                                     hog_channel=hog_channel, spatial_feat=spatial_feat, 
+                                     hist_feat=hist_feat, hog_feat=hog_feat,
+                                     new_size=min_size)
 
     X = np.vstack((test_features)).astype(np.float64)  
 
@@ -138,13 +123,13 @@ def load_test_data(base,X_scaler):
 
     return scaled_X
 
-
-def main(base):
-    cv=train_model(base)
+@timeit
+def main(base,samples=5):
+    cv,X_scaler=train_model(base,samples)
     test_images = glob(base+'test/*.jpg')
     test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test_images}))
 
-    test_imgs_mat = load_test_data(X_scaler)
+    test_imgs_mat = load_test_data(base,X_scaler)
 
     preds=cv.predict_proba(test_imgs_mat)
 
@@ -159,10 +144,7 @@ def main(base):
     
     test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("third_submission.csv",index=False)
 
-
-
-
 if __name__=="__main__":
     basepath="/data/kaggle/"
     print("basepath",basepath)
-    main(basepath)
+    main(basepath,10)
