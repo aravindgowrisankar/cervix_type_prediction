@@ -4,6 +4,7 @@ from glob import glob
 import numpy as np
 import pandas as pd
 from sklearn.externals import joblib
+from random import shuffle
 #import seaborn as sns
 
 import sklearn
@@ -33,48 +34,30 @@ scaler_file_name="standard_scaler_%s.pkl"%experiment_num
 predictions_file_name="predictions_%s.csv"%experiment_num
 
 @timeit
-def load_train_data(samples=10,base="/data/kaggle/"):
-    print(check_output(["ls", base+"/train"]).decode("utf8"))
-        
-# Read in cars and notcars
-    type_1 = glob(base+'train/Type_1/*.jpg')
-    type_2 = glob(base+'train/Type_2/*.jpg')
-    type_3 = glob(base+'train/Type_3/*.jpg')
-    type_1_features = extract_features(type_1[0:samples], color_space=color_space, 
-                                       spatial_size=spatial_size, hist_bins=hist_bins, 
-                                       orient=orient, pix_per_cell=pix_per_cell, 
-                                       cell_per_block=cell_per_block, 
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size,crop=vertical_crop)
-    type_2_features = extract_features(type_2[0:samples], color_space=color_space, 
-                                       spatial_size=spatial_size, hist_bins=hist_bins, 
-                                       orient=orient, pix_per_cell=pix_per_cell, 
-                                       cell_per_block=cell_per_block, 
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size,crop=vertical_crop)
-
-    type_3_features = extract_features(type_3[0:samples], color_space=color_space, 
-                                       spatial_size=spatial_size, hist_bins=hist_bins, 
-                                       orient=orient, pix_per_cell=pix_per_cell, 
-                                       cell_per_block=cell_per_block, 
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                       hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size,crop=vertical_crop)    
-
-#    return type_1_features,type_2_features,type_3_features
-
-    X = np.vstack((type_1_features, type_2_features,type_3_features)).astype(np.float64)  
+def load_train_data(train_files):
+    features = extract_features(train_files,
+                                color_space=color_space, 
+                                spatial_size=spatial_size, 
+                                hist_bins=hist_bins, 
+                                orient=orient, 
+                                pix_per_cell=pix_per_cell, 
+                                cell_per_block=cell_per_block, 
+                                hog_channel=hog_channel, 
+                                spatial_feat=spatial_feat, 
+                                hist_feat=hist_feat, 
+                                hog_feat=hog_feat,
+                                new_size=min_size,
+                                crop=vertical_crop)
+    X = np.vstack((features)).astype(np.float64)
 
     # Fit a per-column scaler
     X_scaler = StandardScaler().fit(X)
     # Apply the scaler to X
     scaled_X = X_scaler.transform(X)
-
+    labels=[get_label(x) for x in train_files]
     # Define the labels vector
-    y = np.hstack((np.zeros(len(type_1_features)), np.ones(len(type_2_features)),2*np.ones(len(type_3_features))))
-    
+    y = np.array(labels)
+    print ("labels",labels)
     return scaled_X,y,X_scaler
 
 @timeit
@@ -117,19 +100,23 @@ def train_model(X,y,random_state=42):
     return cv
 
 @timeit
-def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
-    test = glob(base+'test/*.jpg')[0:samples]
-    test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test}))
-    test_features = extract_features(test, color_space=color_space, 
-                                     spatial_size=spatial_size, hist_bins=hist_bins, 
-                                     orient=orient, pix_per_cell=pix_per_cell, 
+def load_test_data(test_files,X_scaler=None):
+    test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test_files}))
+    test_features = extract_features(test_files, 
+                                     color_space=color_space, 
+                                     spatial_size=spatial_size, 
+                                     hist_bins=hist_bins, 
+                                     orient=orient, 
+                                     pix_per_cell=pix_per_cell, 
                                      cell_per_block=cell_per_block, 
-                                     hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                                     hist_feat=hist_feat, hog_feat=hog_feat,
-                                     new_size=min_size,crop=vertical_crop)
+                                     hog_channel=hog_channel, 
+                                     spatial_feat=spatial_feat, 
+                                     hist_feat=hist_feat, 
+                                     hog_feat=hog_feat,
+                                     new_size=min_size,
+                                     crop=vertical_crop)
 
     X = np.vstack((test_features)).astype(np.float64)  
-
     # Fit a per-column scaler
     # Apply the scaler to X
     scaled_X = X_scaler.transform(X)
@@ -137,7 +124,16 @@ def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
 
 @timeit
 def main(base,samples=5):
-    X,y,X_scaler=load_train_data(samples,base)
+    test_files = glob(base+'test/*.jpg')[0:samples]
+    train_files = glob(base+'train/*/*.jpg')
+    # Additional files
+    train_files+= glob("/data/kaggle_3.27/additional/*/*.jpg")
+    shuffle(train_files)
+
+    train_files=train_files[0:samples]
+
+    X,y,X_scaler=load_train_data(train_files)
+
     try:
         joblib.dump([X,y],data_file_name)
     except:
@@ -150,11 +146,11 @@ def main(base,samples=5):
     cv=train_model(X,y)
 
     try:
-        joblib.dump(clf,model_file_name)
+        joblib.dump(cv,model_file_name)
     except:
         pass
     
-    test_image_df,test_imgs_mat = load_test_data(samples,base,X_scaler)
+    test_image_df,test_imgs_mat = load_test_data(test_files,X_scaler)
     preds=cv.predict_proba(test_imgs_mat)
 
     print("Test set predictions shape",preds.shape)
@@ -184,4 +180,4 @@ if __name__=="__main__":
     print("data_file_name",data_file_name)
     print("scaler_file_name",scaler_file_name)
     print("predictions_file_name",predictions_file_name)
-    main(basepath,10)
+    main(basepath,1500)
