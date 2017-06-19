@@ -27,7 +27,7 @@ hog_feat = True # HOG features on or off
 min_size =(640,480)
 vertical_crop=0.15#15% crop on either side
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
-experiment_num="1i"
+experiment_num="1j"
 model_file_name="clf_%s.pkl"%experiment_num
 data_file_name="data_%s.npz"%experiment_num
 scaler_file_name="standard_scaler_%s.pkl"%experiment_num
@@ -124,7 +124,9 @@ def load_test_data(test_files,X_scaler=None):
 
 @timeit
 def main(base,samples=5):
-    test_files = glob(base+'test/*.jpg')[0:samples]
+    test_files = glob(base+'test/*.jpg')
+    test_files+= glob("/home/u3920/cervix_type_prediction/test_data/test_stg2/*.jpg")
+
     train_files = glob(base+'train/*/*.jpg')
     # Additional files
     train_files+= glob("/data/kaggle_3.27/additional/*/*.jpg")
@@ -149,18 +151,22 @@ def main(base,samples=5):
         joblib.dump(cv,model_file_name)
     except:
         pass
-    
-    test_image_df,test_imgs_mat = load_test_data(test_files,X_scaler)
-    preds=cv.predict_proba(test_imgs_mat)
 
-    print("Test set predictions shape",preds.shape)
-    test_image_df["Type_1"]=preds[:,0]
-    test_image_df["Type_2"]=preds[:,1]
-    test_image_df["Type_3"]=preds[:,2]
-    
+    predictions_df=pd.DataFrame()
+    for x in range(0,len(test_files),100):
+        start=x
+        end=min(x+100,len(test_files))
+        test_image_df,test_imgs_mat = load_test_data(test_files[start:end],X_scaler)
+        preds=cv.predict_proba(test_imgs_mat)
+        print("Test set predictions shape",preds.shape)
+        test_image_df["Type_1"]=preds[:,0]
+        test_image_df["Type_2"]=preds[:,1]
+        test_image_df["Type_3"]=preds[:,2]
+        predictions_df=predictions_df.append(test_image_df,ignore_index=True)
+
     func=lambda x: x.split("/")[-1]
-    test_image_df["image_name"]=test_image_df["imagepath"].apply(func)
-    test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv(predictions_file_name,index=False)
+    predictions_df["image_name"]=predictions_df["imagepath"].apply(func)
+    predictions_df[["image_name","Type_1","Type_2","Type_3"]].to_csv(predictions_file_name,index=False)
     
 if __name__=="__main__":
     basepath="/data/kaggle/"
