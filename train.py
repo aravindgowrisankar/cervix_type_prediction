@@ -3,6 +3,7 @@ from subprocess import check_output
 from glob import glob
 import numpy as np
 import pandas as pd
+from sklearn.externals import joblib
 #import seaborn as sns
 
 import sklearn
@@ -13,8 +14,8 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 
 from common_functions import *
 color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-orient = 9  # HOG orientations #18
-pix_per_cell = 16# HOG pixels per cell. Was 16
+orient = 18  # HOG orientations #18
+pix_per_cell = 40# HOG pixels per cell. Was 16
 cell_per_block = 2 # HOG cells per block
 hog_channel = "ALL" # Can be 0, 1, 2, or "ALL". Was ALL
 spatial_size = (32, 32) # Spatial binning dimensions
@@ -22,8 +23,14 @@ hist_bins = 32    # Number of histogram bins
 spatial_feat = False # Spatial features on or off
 hist_feat = False # Histogram features on or off
 hog_feat = True # HOG features on or off
-min_size =(64,48)
+min_size =(640,480)
+vertical_crop=0.15#15% crop on either side
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
+experiment_num="1i"
+model_file_name="clf_%s.pkl"%experiment_num
+data_file_name="data_%s.npz"%experiment_num
+scaler_file_name="standard_scaler_%s.pkl"%experiment_num
+predictions_file_name="predictions_%s.csv"%experiment_num
 
 @timeit
 def load_train_data(samples=10,base="/data/kaggle/"):
@@ -39,14 +46,14 @@ def load_train_data(samples=10,base="/data/kaggle/"):
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
                                        hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size)
+                                       new_size=min_size,crop=vertical_crop)
     type_2_features = extract_features(type_2[0:samples], color_space=color_space, 
                                        spatial_size=spatial_size, hist_bins=hist_bins, 
                                        orient=orient, pix_per_cell=pix_per_cell, 
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
                                        hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size)
+                                       new_size=min_size,crop=vertical_crop)
 
     type_3_features = extract_features(type_3[0:samples], color_space=color_space, 
                                        spatial_size=spatial_size, hist_bins=hist_bins, 
@@ -54,7 +61,7 @@ def load_train_data(samples=10,base="/data/kaggle/"):
                                        cell_per_block=cell_per_block, 
                                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
                                        hist_feat=hist_feat, hog_feat=hog_feat,
-                                       new_size=min_size)    
+                                       new_size=min_size,crop=vertical_crop)    
 
 #    return type_1_features,type_2_features,type_3_features
 
@@ -119,7 +126,7 @@ def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
                                      cell_per_block=cell_per_block, 
                                      hog_channel=hog_channel, spatial_feat=spatial_feat, 
                                      hist_feat=hist_feat, hog_feat=hog_feat,
-                                     new_size=min_size)
+                                     new_size=min_size,crop=vertical_crop)
 
     X = np.vstack((test_features)).astype(np.float64)  
 
@@ -131,7 +138,22 @@ def load_test_data(samples=10,base="/data/kaggle/",X_scaler=None):
 @timeit
 def main(base,samples=5):
     X,y,X_scaler=load_train_data(samples,base)
+    try:
+        joblib.dump([X,y],data_file_name)
+    except:
+        pass
+    try:
+        joblib.dump(X_scaler,scaler_file_name)
+    except:
+        pass
+
     cv=train_model(X,y)
+
+    try:
+        joblib.dump(clf,model_file_name)
+    except:
+        pass
+    
     test_image_df,test_imgs_mat = load_test_data(samples,base,X_scaler)
     preds=cv.predict_proba(test_imgs_mat)
 
@@ -142,9 +164,24 @@ def main(base,samples=5):
     
     func=lambda x: x.split("/")[-1]
     test_image_df["image_name"]=test_image_df["imagepath"].apply(func)
-    test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("fourth_submission.csv",index=False)
-
+    test_image_df[["image_name","Type_1","Type_2","Type_3"]].to_csv(predictions_file_name,index=False)
+    
 if __name__=="__main__":
     basepath="/data/kaggle/"
     print("basepath",basepath)
-    main(basepath,600)
+    print("color_space",color_space)
+    print("orient",orient)
+    print("pix_per_cell",pix_per_cell)
+    print("cell_per_block",cell_per_block)
+    print("hog_channel",hog_channel)
+    print("spatial_feat",spatial_feat)
+    print("hist_feat",hist_feat)
+    print("hog_feat",hog_feat)
+    print("vertical_crop",vertical_crop)
+    print("min_size",min_size)
+    print("experiment_num",experiment_num)
+    print("model_file_name",model_file_name)
+    print("data_file_name",data_file_name)
+    print("scaler_file_name",scaler_file_name)
+    print("predictions_file_name",predictions_file_name)
+    main(basepath,10)
