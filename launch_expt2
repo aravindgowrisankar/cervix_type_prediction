@@ -1,6 +1,0 @@
-#PBS -l nodes=1:knl -N my_project_1
-source activate aravind
-cd ~/cervix_type_prediction
-echo Starting template matching
-./template_matching.py
-echo End of template matching
