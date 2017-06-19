@@ -5,6 +5,16 @@ from scipy.ndimage.measurements import label
 from time import time
 
 import time                                                
+
+def get_label(x):
+    if "Type_1" in x:
+        return 0
+    if "Type_2" in x:
+        return 1
+    if "Type_3" in x:
+        return 2
+    return None
+
  
 def timeit(method):
     def timed(*args, **kw):
@@ -74,7 +84,8 @@ def extract_features(list_of_images,
                      spatial_feat,
                      hist_feat,
                      hog_feat,
-                     new_size=None
+                     new_size=None,
+                     crop=None
                  ):
 
     list_of_features=[]
@@ -91,7 +102,8 @@ def extract_features(list_of_images,
                                        spatial_feat=spatial_feat, 
                                        hist_feat=hist_feat, 
                                        hog_feat=hog_feat,
-                                       new_size=new_size
+                                       new_size=new_size,
+                                       crop=crop
 )
         
         list_of_features.append(features)
@@ -102,10 +114,15 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9, 
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
                         spatial_feat=True, hist_feat=True, hog_feat=True,
-                        new_size=None):    
+                        new_size=None,
+                        crop=None):
     #1) Define an empty list to receive features
     img_features = []
     #2) Apply color conversion if other than 'RGB'
+    if crop:
+        top=int(img.shape[0]*0.15)
+        bottom=int(img.shape[0]*0.85)
+        img=img[top:bottom,:,:]
     if new_size:
         rows,cols=new_size
         cv2_shape=(cols,rows)
