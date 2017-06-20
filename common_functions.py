@@ -173,7 +173,8 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
         #8) Append features to list
         #print("hog_features",hog_features.shape)
         img_features.append(hog_features)
-
+    if spatial_feat==False and hist_feat==False and hog_feat==False:
+        return feature_image
     #9) Return concatenated array of features
     return np.concatenate(img_features)
 
