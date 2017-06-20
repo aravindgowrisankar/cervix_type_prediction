@@ -89,8 +89,13 @@ def extract_features(list_of_images,
                  ):
 
     list_of_features=[]
+    labels=[]
     for image in list_of_images:
-        img=cv2.imread(image)[...,::-1]#flip BGR to RGB
+        img=cv2.imread(image)
+        if img is None:
+            continue
+        labels.append(get_label(image))
+        img=img[...,::-1]#flip BGR to RGB
         features = single_img_features(img, 
                                        color_space=color_space, 
                                        spatial_size=spatial_size, 
@@ -107,7 +112,7 @@ def extract_features(list_of_images,
 )
         
         list_of_features.append(features)
-    return list_of_features
+    return list_of_features,labels
 # Define a function you will pass an image 
 
 def single_img_features(img, color_space='RGB', spatial_size=(32, 32),

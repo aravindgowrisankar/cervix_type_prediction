@@ -21,13 +21,13 @@ cell_per_block = 2 # HOG cells per block
 hog_channel = "ALL" # Can be 0, 1, 2, or "ALL". Was ALL
 spatial_size = (32, 32) # Spatial binning dimensions
 hist_bins = 32    # Number of histogram bins
-spatial_feat = False # Spatial features on or off
-hist_feat = False # Histogram features on or off
+spatial_feat = True # Spatial features on or off
+hist_feat = True # Histogram features on or off
 hog_feat = True # HOG features on or off
 min_size =(640,480)
 vertical_crop=0.15#15% crop on either side
 #y_start_stop = [400, 720] # Min and max in y to search in slide_window()
-experiment_num="1j"
+experiment_num="1k"
 model_file_name="clf_%s.pkl"%experiment_num
 data_file_name="data_%s.npz"%experiment_num
 scaler_file_name="standard_scaler_%s.pkl"%experiment_num
@@ -35,26 +35,26 @@ predictions_file_name="predictions_%s.csv"%experiment_num
 
 @timeit
 def load_train_data(train_files):
-    features = extract_features(train_files,
-                                color_space=color_space, 
-                                spatial_size=spatial_size, 
-                                hist_bins=hist_bins, 
-                                orient=orient, 
-                                pix_per_cell=pix_per_cell, 
-                                cell_per_block=cell_per_block, 
-                                hog_channel=hog_channel, 
+    features,labels = extract_features(train_files,
+                                       color_space=color_space, 
+                                       spatial_size=spatial_size, 
+                                       hist_bins=hist_bins, 
+                                       orient=orient, 
+                                       pix_per_cell=pix_per_cell, 
+                                       cell_per_block=cell_per_block, 
+                                       hog_channel=hog_channel, 
                                 spatial_feat=spatial_feat, 
-                                hist_feat=hist_feat, 
-                                hog_feat=hog_feat,
-                                new_size=min_size,
-                                crop=vertical_crop)
+                                       hist_feat=hist_feat, 
+                                       hog_feat=hog_feat,
+                                       new_size=min_size,
+                                       crop=vertical_crop)
     X = np.vstack((features)).astype(np.float64)
 
     # Fit a per-column scaler
     X_scaler = StandardScaler().fit(X)
     # Apply the scaler to X
     scaled_X = X_scaler.transform(X)
-    labels=[get_label(x) for x in train_files]
+
     # Define the labels vector
     y = np.array(labels)
     print ("labels",labels)
@@ -102,19 +102,19 @@ def train_model(X,y,random_state=42):
 @timeit
 def load_test_data(test_files,X_scaler=None):
     test_image_df=pd.DataFrame(pd.DataFrame({'imagepath': test_files}))
-    test_features = extract_features(test_files, 
-                                     color_space=color_space, 
-                                     spatial_size=spatial_size, 
-                                     hist_bins=hist_bins, 
-                                     orient=orient, 
-                                     pix_per_cell=pix_per_cell, 
-                                     cell_per_block=cell_per_block, 
-                                     hog_channel=hog_channel, 
-                                     spatial_feat=spatial_feat, 
-                                     hist_feat=hist_feat, 
-                                     hog_feat=hog_feat,
-                                     new_size=min_size,
-                                     crop=vertical_crop)
+    test_features,_ = extract_features(test_files, 
+                                       color_space=color_space, 
+                                       spatial_size=spatial_size, 
+                                       hist_bins=hist_bins, 
+                                       orient=orient, 
+                                       pix_per_cell=pix_per_cell, 
+                                       cell_per_block=cell_per_block, 
+                                       hog_channel=hog_channel, 
+                                       spatial_feat=spatial_feat, 
+                                       hist_feat=hist_feat, 
+                                       hog_feat=hog_feat,
+                                       new_size=min_size,
+                                       crop=vertical_crop)
 
     X = np.vstack((test_features)).astype(np.float64)  
     # Fit a per-column scaler
