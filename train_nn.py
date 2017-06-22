@@ -12,8 +12,10 @@ from keras.layers import Flatten,Dense,Convolution2D,MaxPooling2D,Dropout,Activa
 from keras.models import Sequential
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-
-input_shape=(128,96,3)#640,480,3
+from keras.callbacks import ModelCheckpoint
+experiment=3
+input_shape=(64,48,3)#(128,96,3)#640,480,3
+batch_size=64
 def lenet(input_shape=input_shape):
     """LeNet architecture(final solution)"""
     model=Sequential()
@@ -21,26 +23,21 @@ def lenet(input_shape=input_shape):
     #model.add(Cropping2D(cropping=((70,25), (0,0))))
 
     # SOLUTION: Layer 1: Convolutional. Input =  Output = 
-    model.add(Convolution2D(nb_filter=6, nb_row=5,nb_col=5, subsample=(1,1),bias=True))
-
-    # SOLUTION: Activation.
+    model.add(Convolution2D(nb_filter=32, nb_row=5,nb_col=5, subsample=(1,1),bias=True))
     model.add(Activation('relu'))
-
-    # SOLUTION: Pooling. Input =  Output = 
     model.add(MaxPooling2D(pool_size=(2, 2),border_mode="valid"))
 
-    model.add(Dropout(0.25))
-    
     # SOLUTION: Layer 2: Convolutional. Output = 
-    model.add(Convolution2D(nb_filter=16, nb_row=5,nb_col=5, subsample=(1,1),bias=True))
-    
-    # SOLUTION: Activation.
+    model.add(Convolution2D(nb_filter=32, nb_row=5,nb_col=5, subsample=(1,1),bias=True))
     model.add(Activation('relu'))
-
-    # SOLUTION: Pooling. Input =  Output = 
     model.add(MaxPooling2D(pool_size=(2, 2),border_mode="valid"))
 
-    model.add(Dropout(0.25))
+    model.add(Convolution2D(nb_filter=64, nb_row=5,nb_col=5, subsample=(1,1),bias=True))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2),border_mode="valid"))
+
+    
+ #   model.add(Dropout(0.25))
 
     # SOLUTION: Flatten. Input = 5x5x16. Output = .
     model.add(Flatten())
@@ -51,6 +48,8 @@ def lenet(input_shape=input_shape):
     # SOLUTION: Activation.
     model.add(Activation('relu'))
 
+    model.add(Dropout(0.25))
+    
     # SOLUTION: Layer 4: Fully Connected. Input = 120. Output = 84.
     model.add(Dense(84,bias=True))
     
@@ -86,7 +85,7 @@ def load_image(filepath):
     img=np.dstack((color1, color2, color3))
     return img
     
-def generator(samples, batch_size=32):
+def generator(samples, batch_size=batch_size):
     num_samples = len(samples)
 
     while 1: # Loop forever so the generator never terminates
@@ -112,7 +111,7 @@ def generator(samples, batch_size=32):
             yield sklearn.utils.shuffle(X_train, y_train)
 
 
-def test_generator(samples, batch_size=32):
+def test_generator(samples, batch_size=batch_size):
     num_samples = len(samples)
 
     for offset in range(0, num_samples, batch_size):
@@ -136,11 +135,17 @@ def train_model(model,train_samples,validation_samples,batch_size):
     # compile and train the model using the generator function
     train_generator = generator(train_samples, batch_size=batch_size)
     validation_generator = generator(validation_samples, batch_size=batch_size)
-
+    checkpoint = ModelCheckpoint("best_nn_weights.h5",
+                                 monitor='val_loss',
+                                 verbose=1,
+                                 save_best_only=True,
+                                 mode='auto')
+    callbacks_list=[checkpoint]
     history=model.fit_generator(train_generator, 
                                 samples_per_epoch= len(train_samples), 
                                 validation_data=validation_generator,
-                                nb_val_samples=len(validation_samples), nb_epoch=10)
+                                nb_val_samples=len(validation_samples), nb_epoch=50,
+                                callbacks=callbacks_list)
     return history
 
 @timeit
@@ -159,18 +164,19 @@ def main(base,samples=5):
     train_files=train_files_one[0:samples]+train_files_two[0:samples]+train_files_three[0:samples]
     train_samples, validation_samples = train_test_split(train_files, test_size=0.2)
     old_model_name=None
-    model_name="model"
+    model_name="model_v%s"%experiment
     model=lenet()
     if old_model_name:
         model.load_weights(old_model_name+"_weights.h5")
 
     print("train_samples",len(train_samples),train_samples[0])
     print("validation_samples",len(validation_samples),validation_samples[0])
-    history=train_model(model,train_samples,validation_samples,batch_size=32)
+
+    history=train_model(model,train_samples,validation_samples,batch_size=batch_size)
     model.save(model_name+".h5")
     model.save_weights(model_name+"_weights.h5")
 
-    tg = test_generator(test_files, batch_size=64)
+    tg = test_generator(test_files, batch_size=batch_size)
     predictions_df=pd.DataFrame()
     for X_test in tg:
         output=model.predict(X_test)
@@ -183,7 +189,8 @@ def main(base,samples=5):
     predictions_df["imagepath"]=test_files
     func=lambda x: x.split("/")[-1]
     predictions_df["image_name"]=predictions_df["imagepath"].apply(func)
-    predictions_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("nn.csv",index=False)
+    predictions_df[["image_name","Type_1","Type_2","Type_3"]].to_csv("nn_v%s.csv"%experiment,
+                                                                     index=False)
 
 if __name__=="__main__":
     basepath="/data/"
